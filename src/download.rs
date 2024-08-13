@@ -1,10 +1,9 @@
-use reqwest::{header::HeaderMap, Client};
-use tokio::{self, io::AsyncWriteExt, fs::File};
-use std::{error::Error, fs, path::PathBuf};
-use dirs;
-use std::process::Command;
-use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 use crate::parser::{extract_filename, MediaInfo};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use reqwest::{header::HeaderMap, Client};
+use std::process::Command;
+use std::{error::Error, fs, path::PathBuf};
+use tokio::{self, fs::File, io::AsyncWriteExt};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -17,7 +16,7 @@ pub struct DownloadTask {
     client: Client,
     progress: MultiProgress,
     pub video_path: PathBuf,
-    pub audio_path: PathBuf
+    pub audio_path: PathBuf,
 }
 
 impl DownloadTask {
@@ -33,7 +32,9 @@ impl DownloadTask {
         if let Some(d) = dir {
             directory = PathBuf::from(d);
         } else {
-            directory = dirs::home_dir().expect("failed to get home dir").join("Downloads");
+            directory = dirs::home_dir()
+                .expect("failed to get home dir")
+                .join("Downloads");
         }
 
         Self {
@@ -48,40 +49,39 @@ impl DownloadTask {
     }
 
     async fn download_video(&self) -> Result<()> {
-        let resp = self.client
-            .get(&self.video.base_url)
-            .send()
-            .await?;
+        let resp = self.client.get(&self.video.base_url).send().await?;
 
         self.download_with_bar(resp, "video").await?;
         Ok(())
     }
 
     async fn download_audio(&self) -> Result<()> {
-        let resp = self.client
-            .get(&self.audio.base_url)
-            .send()
-            .await?;
-    
+        let resp = self.client.get(&self.audio.base_url).send().await?;
+
         self.download_with_bar(resp, "audio").await?;
         Ok(())
     }
 
-    async fn download_with_bar(&self, mut resp: reqwest::Response, file_type: &'static str) -> Result<()> {
+    async fn download_with_bar(
+        &self,
+        mut resp: reqwest::Response,
+        file_type: &'static str,
+    ) -> Result<()> {
         let status = resp.status();
         if status != reqwest::StatusCode::OK {
             return Err(format!("download failed with status: {}", status).into());
         }
 
-
         let mut file: File;
         if file_type == "audio" {
             file = File::create(&self.audio_path).await?;
         } else {
-            file = File::create(&self.video_path).await?; 
+            file = File::create(&self.video_path).await?;
         }
-        
-        let total_size = resp.content_length().ok_or("Failed to get content length")?;
+
+        let total_size = resp
+            .content_length()
+            .ok_or("Failed to get content length")?;
         let pb = self.progress.add(ProgressBar::new(total_size));
         pb.set_message(file_type);
         pb.set_style(
@@ -93,19 +93,17 @@ impl DownloadTask {
             file.write_all(&chunk).await?;
             pb.inc(chunk.len().try_into().unwrap());
         }
-        
+
         pb.finish_with_message(format!("Finished downloading {}", file_type));
         Ok(())
     }
-    
+
     pub async fn execute(self, ffmpeg: Option<String>) {
         if !self.dir.exists() {
             println!("Creating directory: {}", self.dir.display());
             fs::create_dir_all(&self.dir).expect("failed to create dir");
-        } else {
-            if !self.dir.is_dir() {
-                panic!("The path is not a directory");
-            }
+        } else if !self.dir.is_dir() {
+            panic!("The path is not a directory");
         };
 
         let video_dl = self.download_video();
@@ -130,23 +128,29 @@ impl DownloadTask {
                     .arg("-c")
                     .arg("copy")
                     .arg(va_path)
-                    .status()
-                    .expect("failed to execute FFmpeg");
+                    .status();
 
-                if merge_status.success() {
-                    println!("Successed merged video and audio: {}", va_path.display());
-                } else {
-                    eprintln!("Failed to merge video and audio");
+                match merge_status {
+                    Ok(s) => {
+                        if s.success() {
+                            println!("Successed merged video and audio: {}", va_path.display());
+                        } else {
+                            eprintln!("Failed to merge video and audio");
+                        }
+                    }
+                    Err(e) => {
+                        self.remove_all();
+                        panic!("Failed to merge video and audio: {}", e);
+                    }
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("Download failed: {}", e);
             }
         }
 
         // Delete the source video and audio files
-        Self::remove_tmp_file(&self.video_path);
-        Self::remove_tmp_file(&self.audio_path);
+        self.remove_all();
     }
 
     fn get_file_path(media: &MediaInfo, file: &str) -> PathBuf {
@@ -161,14 +165,18 @@ impl DownloadTask {
             }
         }
     }
-}
 
+    fn remove_all(&self) {
+        Self::remove_tmp_file(&self.video_path);
+        Self::remove_tmp_file(&self.audio_path);
+    }
+}
 
 #[cfg(test)]
 mod dl_test {
     use super::*;
     use crate::fetch::{fetch_url, init_default_header};
-    use crate::parser::{extract_play_info, choose_audio_stream, choose_video_stream};
+    use crate::parser::{choose_audio_stream, choose_video_stream, extract_play_info};
     use dirs;
 
     #[tokio::test]
@@ -204,5 +212,4 @@ mod dl_test {
             eprintln!("failed");
         }
     }
-
 }

@@ -1,7 +1,7 @@
-use std::{error::Error, path::Path};
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
-use serde::{Serialize, Deserialize};
+use std::{error::Error, path::Path};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SegmentBase {
@@ -28,13 +28,13 @@ type MediaInfoOption = Option<MediaInfo>;
 struct Dolby {
     #[serde(rename = "type")]
     type_: i32,
-    audio: Option<Vec<MediaInfoOption>>
+    audio: Option<Vec<MediaInfoOption>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Flac {
     display: bool,
-    audio: Option<MediaInfoOption>
+    audio: Option<MediaInfoOption>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,7 +42,7 @@ pub struct Dash {
     audio: Vec<MediaInfoOption>,
     pub video: Vec<MediaInfoOption>,
     dolby: Dolby,
-    flac: Option<Flac>
+    flac: Option<Flac>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -58,7 +58,7 @@ pub fn extract_play_info(body: String) -> Result<PlayInfo, Box<dyn Error>> {
 
     let start_index = body.find(start_token).unwrap() + start_token.len();
     let end_index = body[start_index..].find(end_token).unwrap() + start_index;
-    
+
     let mut serde_res = serde_json::from_str::<Value>(&body[start_index..end_index])?;
     // print!("{:#?}", serde_res);
 
@@ -81,7 +81,7 @@ pub fn choose_audio_stream(play_info: &mut PlayInfo) -> MediaInfoOption {
             audio_data.push(audio);
         }
     }
-    
+
     let flac = play_info.dash.flac.as_mut();
     if flac.is_some() {
         if let Some(f) = flac {
@@ -90,33 +90,43 @@ pub fn choose_audio_stream(play_info: &mut PlayInfo) -> MediaInfoOption {
         }
     }
 
-    audio_data.into_iter().max_by_key(|f| f.as_ref().unwrap().bandwidth).unwrap().take()
+    audio_data
+        .into_iter()
+        .max_by_key(|f| f.as_ref().unwrap().bandwidth)
+        .unwrap()
+        .take()
 }
 
-pub fn choose_video_stream(video_data: &mut Vec<MediaInfoOption>) -> MediaInfoOption {
-    video_data.iter_mut().max_by_key(|f| f.as_ref().unwrap().bandwidth).unwrap().take()
+pub fn choose_video_stream(video_data: &mut [MediaInfoOption]) -> MediaInfoOption {
+    video_data
+        .iter_mut()
+        .max_by_key(|f| f.as_ref().unwrap().bandwidth)
+        .unwrap()
+        .take()
 }
 
 pub fn extract_filename(url: &str, default: &str) -> String {
     let u = Url::parse(url).unwrap();
     let path = Path::new(u.path());
     let filename = path.file_stem().unwrap().to_str().unwrap_or(default);
-    format!("{}.{}", filename, path.extension().unwrap().to_str().unwrap())
+    format!(
+        "{}.{}",
+        filename,
+        path.extension().unwrap().to_str().unwrap()
+    )
 }
-
-
 
 #[cfg(test)]
 mod parser_test {
-    use crate::fetch::fetch_url;
     use super::*;
+    use crate::fetch::fetch_url;
 
     #[tokio::test]
     async fn parser_test() {
         // let url = "https://www.bilibili.com/video/BV1ub421J7vH";
         let url = "https://www.bilibili.com/video/BV1P1421t75S/?spm_id_from=333.337.search-card.all.click&vd_source=7b61f7ca2c7edcd57c0ffd1c17ee4e4c";
         let body = fetch_url(url, None).await.expect("1");
-    
+
         // let _ = extract_play_info(body);
         let mut play_info = extract_play_info(body).expect("failed to extract play info");
         let audio_stream = choose_audio_stream(&mut play_info);
@@ -126,4 +136,3 @@ mod parser_test {
         println!("{:#?}", audio_stream);
     }
 }
-

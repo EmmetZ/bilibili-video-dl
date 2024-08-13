@@ -27,7 +27,6 @@ fn validate_url(url: &str) -> Result<Url, String> {
     Ok(u)
 }
 
-
 #[cfg(test)]
 mod cli_test {
     use super::*;

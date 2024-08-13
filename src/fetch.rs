@@ -1,4 +1,4 @@
-use reqwest::header::{HeaderMap, USER_AGENT, REFERER};
+use reqwest::header::{HeaderMap, COOKIE, REFERER, USER_AGENT};
 use std::{error::Error, fs, time::Duration};
 
 pub fn init_default_header(url: &str, cookies: Option<&String>) -> HeaderMap {
@@ -6,8 +6,8 @@ pub fn init_default_header(url: &str, cookies: Option<&String>) -> HeaderMap {
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0";
     header.insert(USER_AGENT, ua.parse().unwrap());
     header.insert(REFERER, url.parse().unwrap());
-    if cookies.is_some() {
-        header.insert("cookie", cookies.unwrap().parse().unwrap());
+    if let Some(c) = cookies {
+        header.insert(COOKIE, c.parse().unwrap());
     }
     header
 }
@@ -19,12 +19,11 @@ pub fn encode_cookies(c_path: String) -> Result<Option<String>, Box<dyn Error>> 
     // println!("{}", cookies);
     if cookies.is_empty() {
         println!("cookies is empty");
-        Ok(None) 
+        Ok(None)
     } else {
         Ok(Some(cookies))
     }
 }
-
 
 pub async fn fetch_url(url: &str, cookies: Option<&String>) -> Result<String, Box<dyn Error>> {
     let client = reqwest::Client::new();
@@ -41,9 +40,9 @@ pub async fn fetch_url(url: &str, cookies: Option<&String>) -> Result<String, Bo
 
 #[cfg(test)]
 mod fetch_test {
-    use std::path::Path;
-    use reqwest::Url;
     use super::*;
+    use reqwest::Url;
+    use std::path::Path;
 
     #[tokio::test]
     async fn fetch_test() {
