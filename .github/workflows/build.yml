@@ -1,0 +1,57 @@
+name: Rust Build
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive-name: linux_x86_64-bili-dl.tar.gz
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive-name: windows_x86_64-bili-dl.zip
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust Target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build binary
+        run: cargo build --verbose --release --target ${{ matrix.target }}
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Build archive
+        run: |
+          mkdir -p archive
+          cd archive
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            cp "../target/${{ matrix.target }}/release/bili-dl.exe" ./
+            7z a "${{ matrix.archive-name }}" bili-dl.exe
+          else
+            cp "../target/${{ matrix.target }}/release/bili-dl" ./
+            tar -czf "${{ matrix.archive-name }}" bili-dl
+          fi
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive-name }}
+          path: archive/${{ matrix.archive-name }}
+
