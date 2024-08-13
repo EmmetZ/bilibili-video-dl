@@ -98,7 +98,7 @@ impl DownloadTask {
         Ok(())
     }
 
-    pub async fn execute(self, ffmpeg: Option<String>) {
+    pub async fn execute(&self, ffmpeg: Option<String>) {
         if !self.dir.exists() {
             println!("Creating directory: {}", self.dir.display());
             fs::create_dir_all(&self.dir).expect("failed to create dir");
