@@ -1,4 +1,7 @@
-use reqwest::header::{HeaderMap, COOKIE, REFERER, USER_AGENT};
+use reqwest::{
+    header::{HeaderMap, COOKIE, REFERER, USER_AGENT},
+    Client,
+};
 use std::{error::Error, fs, time::Duration};
 
 pub fn init_default_header(url: &str, cookies: Option<&String>) -> HeaderMap {
@@ -21,12 +24,14 @@ pub fn encode_cookies(c_path: String) -> Result<Option<String>, Box<dyn Error>> 
         println!("cookies is empty");
         Ok(None)
     } else {
+        println!("successfully read cookies");
         Ok(Some(cookies))
     }
 }
 
 pub async fn fetch_url(url: &str, cookies: Option<&String>) -> Result<String, Box<dyn Error>> {
     let client = reqwest::Client::new();
+    let _ = validate_login(&client, cookies).await?;
     let resp = client
         .get(url)
         .headers(init_default_header(url, cookies))
@@ -36,6 +41,28 @@ pub async fn fetch_url(url: &str, cookies: Option<&String>) -> Result<String, Bo
 
     let body = resp.text().await?;
     Ok(body)
+}
+
+async fn validate_login(client: &Client, cookies: Option<&String>) -> Result<bool, Box<dyn Error>> {
+    let url = "https://api.bilibili.com/x/web-interface/nav";
+    let resp = client
+        .get(url)
+        .headers(init_default_header(url, cookies))
+        .timeout(Duration::from_secs(3))
+        .send()
+        .await?;
+
+    // Check if the response contains a login indicator
+    let body = resp.text().await?;
+    let is_logged_in = body.contains("\"isLogin\":true");
+
+    if is_logged_in {
+        println!("Successfully logged in\n");
+    } else {
+        println!("Not logged in\n");
+    }
+
+    Ok(is_logged_in)
 }
 
 #[cfg(test)]
@@ -68,5 +95,12 @@ mod fetch_test {
         let c_path = "cookies.txt".to_string();
         let a = encode_cookies(c_path).unwrap();
         println!("{a:?}");
+    }
+
+    #[tokio::test]
+    async fn login_test() {
+        let client = reqwest::Client::new();
+        let res = validate_login(&client, None).await;
+        assert_eq!(res.unwrap(), false);
     }
 }

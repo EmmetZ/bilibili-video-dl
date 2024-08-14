@@ -139,8 +139,7 @@ impl DownloadTask {
                         }
                     }
                     Err(e) => {
-                        self.remove_all();
-                        panic!("Failed to merge video and audio: {}", e);
+                        panic!("Failed to merge video and audio, you may check FFmpeg: {}", e);
                     }
                 }
             }
@@ -148,9 +147,6 @@ impl DownloadTask {
                 eprintln!("Download failed: {}", e);
             }
         }
-
-        // Delete the source video and audio files
-        self.remove_all();
     }
 
     fn get_file_path(media: &MediaInfo, file: &str) -> PathBuf {
@@ -158,7 +154,7 @@ impl DownloadTask {
         PathBuf::from(filename)
     }
 
-    pub fn remove_tmp_file(file_path: &PathBuf) {
+    fn remove_tmp_file(&self, file_path: &PathBuf) {
         if file_path.exists() {
             if let Err(e) = fs::remove_file(file_path) {
                 eprintln!("Failed to delete file: {}", e);
@@ -166,9 +162,9 @@ impl DownloadTask {
         }
     }
 
-    fn remove_all(&self) {
-        Self::remove_tmp_file(&self.video_path);
-        Self::remove_tmp_file(&self.audio_path);
+    pub fn remove_all(&self) {
+        self.remove_tmp_file(&self.video_path);
+        self.remove_tmp_file(&self.audio_path);
     }
 }
 

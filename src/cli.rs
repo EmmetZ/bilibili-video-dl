@@ -3,7 +3,7 @@ use reqwest::Url;
 
 #[derive(Parser, Debug)]
 #[command(name = "bili-dl")]
-#[command(version = "0.1.0")]
+#[command(version = "0.2.0")]
 pub struct Cli {
     /// The URL of the video
     #[arg(required = true, value_parser = validate_url)]

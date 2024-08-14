@@ -36,10 +36,7 @@ async fn main() {
     ));
     // println!("{:#?}", dl);
 
-    let clone_dl = Arc::clone(&dl);
-    let listen_task = tokio::spawn(async move {
-        listen_for_interrupt(clone_dl).await;
-    });
+    let listen_task = tokio::spawn(listen_for_interrupt());
 
     let clone_dl = Arc::clone(&dl);
     let download_task = tokio::spawn(async move {
@@ -61,12 +58,13 @@ async fn main() {
             }
         }
     }
+
+    // remove tmp files
+    dl.remove_all();
 }
 
-async fn listen_for_interrupt(download_task: Arc<DownloadTask>) {
+async fn listen_for_interrupt() {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to listen for ctrl-c event");
-    DownloadTask::remove_tmp_file(&download_task.video_path);
-    DownloadTask::remove_tmp_file(&download_task.audio_path);
 }
