@@ -1,46 +1,46 @@
+mod bangumi;
 mod cli;
-mod download;
-mod fetch;
+mod ffmpeg;
+mod http;
 mod parser;
 
 use clap::Parser;
 use cli::Cli;
-use download::DownloadTask;
-use fetch::{encode_cookies, fetch_url, init_default_header};
-use parser::{choose_audio_stream, choose_video_stream, extract_play_info};
+use http::{
+    client::Client,
+    download::DownloadTask,
+    fetch::{process_url, VideoType},
+};
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
+    let mut dir = cli.dl_dir;
+    let client = Client::new();
 
-    let cookies: Option<String> = match cli.cookies {
-        Some(c) => encode_cookies(c).unwrap(),
-        None => None,
+    if let Some(c) = cli.cookies {
+        println!("添加 cookies");
+        client.add_cookies(&c);
     };
 
+    let _ = client.validate_login().await;
+
     let url = cli.url.as_str();
-    let body = fetch_url(url, cookies.as_ref())
-        .await
-        .expect("failed to fetch video page");
-    let mut play_info = extract_play_info(body).expect("failed to extract play info");
-    let audio_stream = choose_audio_stream(&mut play_info);
-    let video_stream = choose_video_stream(&mut play_info.dash.video);
+    let media_list = match process_url(url) {
+        VideoType::Bangumi => client
+            .get_bangumi(url, &mut dir)
+            .await
+            .expect("获取番剧列表失败"),
+        VideoType::Video => client.get_video(url).await.expect("获取视频失败"),
+    };
 
-    let header = init_default_header(url, cookies.as_ref());
-    let dl = Arc::new(DownloadTask::new(
-        video_stream.unwrap(),
-        audio_stream.unwrap(),
-        cli.dl_dir,
-        header,
-    ));
-    // println!("{:#?}", dl);
-
+    let dl = Arc::new(DownloadTask::new(dir, client, media_list));
     let listen_task = tokio::spawn(listen_for_interrupt());
 
     let clone_dl = Arc::clone(&dl);
     let download_task = tokio::spawn(async move {
-        clone_dl.execute(cli.ffmpeg).await;
+        clone_dl.execute().await;
     });
 
     tokio::select! {
@@ -60,7 +60,7 @@ async fn main() {
     }
 
     // remove tmp files
-    dl.remove_all();
+    dl.remove_tmp_file();
 }
 
 async fn listen_for_interrupt() {

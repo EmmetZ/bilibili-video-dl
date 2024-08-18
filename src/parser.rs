@@ -52,20 +52,44 @@ pub struct PlayInfo {
     pub dash: Dash,
 }
 
+fn find_start_token<'a>(
+    body: &str,
+    start_tokens: &[&str],
+    end_tokens: &'a [&str],
+) -> (usize, Option<usize>, &'a str) {
+    for (i, token) in start_tokens.iter().enumerate() {
+        if let Some(index) = body.find(token) {
+            return (i, Some(index), end_tokens[i]);
+        }
+    }
+    (0, None, "")
+}
+
 pub fn extract_play_info(body: String) -> Result<PlayInfo, Box<dyn Error>> {
-    let start_token = "<script>window.__playinfo__=";
-    let end_token = "</script>";
+    println!("[Parsing] 解析视频链接......");
+    let start_tokens = ["<script>window.__playinfo__=", "const playurlSSRData = "];
+    let end_tokens = ["</script>", "if"];
 
-    let start_index = body.find(start_token).unwrap() + start_token.len();
+    let (index, start, end_token) = find_start_token(&body, &start_tokens, &end_tokens);
+
+    if start.is_none() {
+        return Err("failed to find play info".into());
+    }
+
+    let start_index = start.unwrap() + start_tokens[index].len();
     let end_index = body[start_index..].find(end_token).unwrap() + start_index;
-
     let mut serde_res = serde_json::from_str::<Value>(&body[start_index..end_index])?;
     // print!("{:#?}", serde_res);
-
-    let play_info: PlayInfo = serde_json::from_value(serde_res["data"].take())?;
-    // println!("{:#?}", play_info);
-
-    Ok(play_info)
+    if index == 0 {
+        let play_info: PlayInfo = serde_json::from_value(serde_res["data"].take())?;
+        // println!("{:#?}", play_info);
+        return Ok(play_info);
+    } else if index == 1 {
+        let play_info: PlayInfo = serde_json::from_value(serde_res["result"]["video_info"].take())?;
+        // println!("{:#?}", play_info);
+        return Ok(play_info);
+    }
+    Err("failed to extract play info".into())
 }
 
 pub fn choose_audio_stream(play_info: &mut PlayInfo) -> MediaInfoOption {
@@ -85,8 +109,8 @@ pub fn choose_audio_stream(play_info: &mut PlayInfo) -> MediaInfoOption {
     let flac = play_info.dash.flac.as_mut();
     if flac.is_some() {
         if let Some(f) = flac {
-            let a = f.audio.as_mut().unwrap();
-            audio_data.push(a);
+            let a = &mut f.audio;
+            a.is_some().then(|| audio_data.push(a.as_mut().unwrap()));
         }
     }
 
@@ -118,17 +142,19 @@ pub fn extract_filename(url: &str, default: &str) -> String {
 
 #[cfg(test)]
 mod parser_test {
+    use crate::http::client;
+
     use super::*;
-    use crate::fetch::fetch_url;
 
     #[tokio::test]
     async fn parser_test() {
+        let client = client::Client::new();
         // let url = "https://www.bilibili.com/video/BV1ub421J7vH";
         let url = "https://www.bilibili.com/video/BV1P1421t75S/?spm_id_from=333.337.search-card.all.click&vd_source=7b61f7ca2c7edcd57c0ffd1c17ee4e4c";
-        let body = fetch_url(url, None).await.expect("1");
+        let body = client.fetch_page_info(url).await.expect("1");
 
-        // let _ = extract_play_info(body);
         let mut play_info = extract_play_info(body).expect("failed to extract play info");
+        // println!("{:#?}", play_info);
         let audio_stream = choose_audio_stream(&mut play_info);
 
         let video_stream = choose_video_stream(&mut play_info.dash.video);

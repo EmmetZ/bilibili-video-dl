@@ -5,26 +5,33 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-    name: build
-    runs-on: ${{ matrix.os }}
+  build-windows:
+    name: Windows - FFmpeg ${{ matrix.ffmpeg_version }} - build
+    runs-on: windows-latest
     strategy:
       matrix:
-        build: [linux, windows]
         include:
-          - build: linux
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            archive-name: bili-dl_linux_x86_64
-          - build: windows
-            os: windows-latest
+          - ffmpeg_version: latest
+            ffmpeg_download_url: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
             target: x86_64-pc-windows-msvc
-            archive-name: bili-dl_windows_x86_64
+            archive-name: bili-dl_windows_x86_64 
       fail-fast: false
-
+    env:
+      FFMPEG_DOWNLOAD_URL: ${{ matrix.ffmpeg_download_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+          7z x ffmpeg-release-full-shared.7z
+          mkdir ffmpeg
+          mv ffmpeg-*/* ffmpeg/
+          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -33,9 +40,58 @@ jobs:
         run: rustup target add ${{ matrix.target }}
 
       - name: Build binary
-        run: cargo build --verbose --release --target ${{ matrix.target }}
+        run: |
+          cargo build --verbose --release
         env:
           RUST_BACKTRACE: 1
+
+      - name: Build archive
+        shell: bash
+        run: |
+          mkdir -p archive
+          cd archive
+          mkdir ${{ matrix.archive-name }}
+          cp "../target/${{ matrix.target }}/release/bili-dl.exe" ./${{ matrix.archive-name }}
+          fi
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive-name }}
+          path: archive/${{ matrix.archive-name }}
+
+  build-linux:
+    name: Linux FFmpeg 7.0 - build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            archive-name: bili-dl_linux_x86_64
+      fail-fast: false
+    env:
+      FFMPEG_DIR: /home/runner/work/rust-ffmpeg/rust-ffmpeg/ffmpeg-7.0-linux-clang-default
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends clang curl pkg-config xz-utils libxv-dev
+          curl -L https://sourceforge.net/projects/avbuild/files/linux/ffmpeg-7.0-linux-clang-default.tar.xz/download -o ffmpeg.tar.xz
+          tar -xf ffmpeg.tar.xz
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Add Rust Target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build Binary
+        run: |
+          cargo build --verbose --release
 
       - name: Build archive
         shell: bash
@@ -54,4 +110,3 @@ jobs:
         with:
           name: ${{ matrix.archive-name }}
           path: archive/${{ matrix.archive-name }}
-
