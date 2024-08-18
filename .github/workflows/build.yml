@@ -41,18 +41,17 @@ jobs:
 
       - name: Build binary
         run: |
-          cargo build --verbose --release
+          cargo build --verbose --release --target ${{ matrix.target }}
         env:
           RUST_BACKTRACE: 1
 
       - name: Build archive
-        shell: bash
         run: |
           mkdir -p archive
           cd archive
           mkdir ${{ matrix.archive-name }}
           cp "../target/${{ matrix.target }}/release/bili-dl.exe" ./${{ matrix.archive-name }}
-          fi
+          cp "../ffmpeg/bin/*.dll" ./${{ matrix.archive-name }}
 
       - name: Upload archive
         uses: actions/upload-artifact@v4
@@ -61,7 +60,7 @@ jobs:
           path: archive/${{ matrix.archive-name }}
 
   build-linux:
-    name: Linux FFmpeg 7.0 - build
+    name: Linux - FFmpeg 7.0 - build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -70,7 +69,7 @@ jobs:
             archive-name: bili-dl_linux_x86_64
       fail-fast: false
     env:
-      FFMPEG_DIR: /home/runner/work/rust-ffmpeg/rust-ffmpeg/ffmpeg-7.0-linux-clang-default
+      FFMPEG_DIR: /home/runner/work/bilibili-video-dl/bilibili-video-dl/ffmpeg-7.0-linux-clang-default
     steps:
 
       - name: Checkout repository
@@ -91,7 +90,7 @@ jobs:
 
       - name: Build Binary
         run: |
-          cargo build --verbose --release
+          cargo build --verbose --release --target ${{ matrix.target }}
 
       - name: Build archive
         shell: bash
@@ -99,11 +98,7 @@ jobs:
           mkdir -p archive
           cd archive
           mkdir ${{ matrix.archive-name }}
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            cp "../target/${{ matrix.target }}/release/bili-dl.exe" ./${{ matrix.archive-name }}
-          else
-            cp "../target/${{ matrix.target }}/release/bili-dl" ./${{ matrix.archive-name }}
-          fi
+          cp "../target/${{ matrix.target }}/release/bili-dl" ./${{ matrix.archive-name }}
 
       - name: Upload archive
         uses: actions/upload-artifact@v4

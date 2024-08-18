@@ -26,7 +26,7 @@ fn validate_url(url: &str) -> Result<Url, String> {
 }
 
 fn set_dir(dir: &str) -> Result<PathBuf, String> {
-    if dir.is_empty() {
+    if !dir.is_empty() {
         let d = PathBuf::from(dir);
         if !d.exists() || !d.is_dir() {
             return Err("文件夹不存在".into());
