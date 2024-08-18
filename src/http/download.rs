@@ -25,7 +25,7 @@ pub struct Task {
     pub link: String,
     pub title: String,
     pub input_path: Mutex<Option<InputPath>>,
-    pub id: i32,
+    pub id: usize,
     progress: MultiProgress,
 }
 
@@ -38,7 +38,7 @@ pub struct DownloadTask {
 }
 
 impl Task {
-    pub fn new(link: String, title: String, id: i32) -> Self {
+    pub fn new(link: String, title: String, id: usize) -> Self {
         Self {
             link,
             title,

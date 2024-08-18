@@ -33,6 +33,7 @@ pub struct Episode {
     pub link: String,
     #[serde(rename = "title")]
     pub ep_num: String,
+    pub badge_type: i32,
     status: i32,
 }
 
@@ -88,11 +89,14 @@ impl Client {
         println!("获取番剧列表成功\n《{}》, 共{}集", &info.title, info.total);
         dir.push(&info.title);
         let mut video_list: Vec<Task> = Vec::new();
-        info.episodes.into_iter().for_each(|ep| {
+        let filtered_ep_list = info.episodes.into_iter().filter(|ep| ep.badge_type != 1);
+
+        // println!("{:#?}", filtered_ep_list);
+        filtered_ep_list.enumerate().for_each(|(i, ep)| {
             video_list.push(Task::new(
                 ep.link,
                 get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title),
-                ep.ep_num.parse().unwrap(),
+                i,
             ))
         });
         Ok(video_list)
@@ -117,12 +121,12 @@ fn bangumi_url_parser(url: &str) -> Result<BangumiID> {
 }
 
 fn get_bangumi_file_name(b_title: &str, ep_num: &str, ep_title: &str) -> String {
-    format!(
-        "{} - {:02} [{}]",
-        b_title,
-        ep_num.parse::<i32>().unwrap(),
-        ep_title
-    )
+    let formatted_ep_num = if let Ok(num) = ep_num.parse::<i32>() {
+        format!("{:02}", num)
+    } else {
+        ep_num.to_string()
+    };
+    format!("{} - {} [{}]", b_title, formatted_ep_num, ep_title)
 }
 
 #[cfg(test)]

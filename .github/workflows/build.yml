@@ -49,9 +49,9 @@ jobs:
         run: |
           mkdir -p archive
           cd archive
-          mkdir ${{ matrix.archive-name }}
-          cp "../target/${{ matrix.target }}/release/bili-dl.exe" ./${{ matrix.archive-name }}
-          cp "../ffmpeg/bin/*.dll" ./${{ matrix.archive-name }}
+          mkdir "${{ matrix.archive-name }}/bili-dl"
+          cp "../target/${{ matrix.target }}/release/bili-dl.exe" "./${{ matrix.archive-name }}/bili-dl"
+          cp "../ffmpeg/bin/*.dll" "./${{ matrix.archive-name }}/bili-dl"
 
       - name: Upload archive
         uses: actions/upload-artifact@v4
