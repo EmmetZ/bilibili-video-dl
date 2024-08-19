@@ -1,26 +1,33 @@
+use crate::http::download::Task;
+use clap::Parser;
+use crossterm::{
+    cursor,
+    event::{read, Event, KeyCode},
+    execute,
+    style::{Attribute, Color, SetAttribute, SetForegroundColor},
+    terminal::{self, Clear, ClearType},
+};
+use reqwest::Url;
 use std::{
-    io::{stdin, stdout, Stdout, Write},
+    io::{stdout, Stdout, Write},
     path::PathBuf,
 };
 
-use clap::Parser;
-use reqwest::Url;
-use termion::{
-    clear, color, cursor,
-    event::Key,
-    input::TermRead,
-    raw::{IntoRawMode, RawTerminal},
-    style,
+const SELECTED_COLOR: Color = Color::Rgb {
+    r: 255,
+    g: 167,
+    b: 38,
 };
 
-use crate::http::download::Task;
-
-const SELECTED_COLOR: (u8, u8, u8) = (255, 167, 38);
-const UNSELECTED_COLOR: (u8, u8, u8) = (120, 144, 156);
+const UNSELECTED_COLOR: Color = Color::Rgb {
+    r: 120,
+    g: 144,
+    b: 156,
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "bili-dl")]
-#[command(version = "1.1")]
+#[command(version = "1.2")]
 pub struct Cli {
     /// 视频链接
     #[arg(value_parser = validate_url)]
@@ -56,53 +63,53 @@ fn set_dir(dir: &str) -> Result<PathBuf, String> {
 }
 
 pub fn select_download_video(video_list: Vec<Task>) -> Vec<Task> {
-    let stdin = stdin();
-    let mut buf = stdout().into_raw_mode().unwrap();
+    terminal::enable_raw_mode().expect("Failed to enable raw mode");
+    let mut buf = stdout();
 
     let mut flag = true;
     let mut is_selected = vec![flag; video_list.len()];
     let mut line: usize = 0;
 
-    termion_init(&mut buf);
+    terminal_init(&mut buf);
 
     print_video_list(&mut buf, &video_list, &is_selected, line);
     buf.flush().unwrap();
 
-    for k in stdin.keys() {
-        match k.unwrap() {
-            Key::Up => {
-                line = line.saturating_sub(1);
-            }
-            Key::Down => {
-                if line < video_list.len() - 1 {
-                    line += 1
+    loop {
+        if let Event::Key(k) = read().expect("Failed to read input") {
+            let key_code = k.code;
+            match key_code {
+                KeyCode::Up => {
+                    line = line.saturating_sub(1);
                 }
+                KeyCode::Down => {
+                    if line < video_list.len() - 1 {
+                        line += 1
+                    }
+                }
+                KeyCode::Char('d') => {
+                    is_selected[line] = !is_selected[line];
+                }
+                KeyCode::Enter => {
+                    break;
+                }
+                KeyCode::Char('n') => {
+                    println!("取消下载");
+                    is_selected = vec![false; video_list.len()];
+                    break;
+                }
+                KeyCode::Char('a') => {
+                    flag = !flag;
+                    is_selected = vec![flag; video_list.len()];
+                }
+                _ => {}
             }
-            Key::Char('d') => {
-                is_selected[line] = !is_selected[line];
-            }
-            Key::Char('y') => {
-                break;
-            }
-            Key::Char('n') => {
-                println!("取消下载");
-                is_selected = vec![false; video_list.len()];
-                break;
-            }
-            Key::Char('a') => {
-                flag = !flag;
-                is_selected = vec![flag; video_list.len()];
-            }
-            _ => {}
+            print_video_list(&mut buf, &video_list, &is_selected, line);
+            buf.flush().unwrap();
         }
-
-        print_video_list(&mut buf, &video_list, &is_selected, line);
-        buf.flush().unwrap();
     }
-
-    write!(buf, "{}", termion::cursor::Show).unwrap();
-    buf.flush().unwrap();
-
+    terminal::disable_raw_mode().expect("Failed to disable raw mode");
+    execute!(buf, cursor::Show).unwrap();
     video_list
         .into_iter()
         .zip(is_selected)
@@ -111,97 +118,73 @@ pub fn select_download_video(video_list: Vec<Task>) -> Vec<Task> {
         .collect()
 }
 
-fn print_video_list(
-    buf: &mut RawTerminal<Stdout>,
-    video_list: &[Task],
-    is_selected: &[bool],
-    line: usize,
-) {
-    write!(buf, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
+fn print_video_list(buf: &mut Stdout, video_list: &[Task], is_selected: &[bool], line: usize) {
+    execute!(buf, Clear(ClearType::All), cursor::MoveTo(0, 0)).unwrap();
     for (i, (video, selected)) in video_list.iter().zip(is_selected.iter()).enumerate() {
-        write!(buf, "{}", termion::cursor::Goto(1, i as u16 + 1)).unwrap();
+        write!(buf, "{}", cursor::MoveTo(0, i as _)).unwrap();
         match (i == line, *selected) {
             (true, true) => writeln!(
                 buf,
                 "{} [✓] {}{}{} <<<{}",
-                color::Fg(color::Rgb(
-                    SELECTED_COLOR.0,
-                    SELECTED_COLOR.1,
-                    SELECTED_COLOR.2
-                )),
-                style::Underline,
+                SetForegroundColor(SELECTED_COLOR),
+                SetAttribute(Attribute::Underlined),
                 video.title,
-                style::NoUnderline,
-                color::Fg(color::Reset)
+                SetAttribute(Attribute::NoUnderline),
+                SetForegroundColor(Color::Reset),
             )
             .unwrap(),
             (true, false) => writeln!(
                 buf,
                 "{} [ ] {}{}{} <<<{}",
-                color::Fg(color::Rgb(
-                    UNSELECTED_COLOR.0,
-                    UNSELECTED_COLOR.1,
-                    UNSELECTED_COLOR.2
-                )),
-                style::Underline,
+                SetForegroundColor(UNSELECTED_COLOR),
+                SetAttribute(Attribute::Underlined),
                 video.title,
-                style::NoUnderline,
-                color::Fg(color::Reset)
+                SetAttribute(Attribute::NoUnderline),
+                SetForegroundColor(Color::Reset),
             )
             .unwrap(),
             (false, true) => writeln!(
                 buf,
                 "{} [✓] {}{}",
-                color::Fg(color::Rgb(
-                    SELECTED_COLOR.0,
-                    SELECTED_COLOR.1,
-                    SELECTED_COLOR.2
-                )),
+                SetForegroundColor(SELECTED_COLOR),
                 video.title,
-                color::Fg(color::Reset)
+                SetForegroundColor(Color::Reset),
             )
             .unwrap(),
             (false, false) => writeln!(
                 buf,
                 "{} [ ] {}{}",
-                color::Fg(color::Rgb(
-                    UNSELECTED_COLOR.0,
-                    UNSELECTED_COLOR.1,
-                    UNSELECTED_COLOR.2
-                )),
+                SetForegroundColor(UNSELECTED_COLOR),
                 video.title,
-                color::Fg(color::Reset)
+                SetForegroundColor(Color::Reset),
             )
             .unwrap(),
         }
     }
 
-    let hint_line = video_list.len() as u16 + 2;
-    write!(
+    let hint_line = video_list.len() as u16 + 1;
+    writeln!(
         buf,
-        "{} ↑/↓: 上下移动; d: 选择 / 取消选择; a: 全选 / 全不选; y: 确认; n: 取消下载{}",
-        cursor::Goto(1, hint_line),
-        cursor::Goto(1, hint_line + 1)
+        "{} ↑/↓: 上下移动; d: 选择 / 取消选择; a: 全选 / 全不选; Enter: 确认; n: 取消下载{}",
+        cursor::MoveTo(0, hint_line),
+        cursor::MoveTo(0, hint_line + 1)
     )
     .unwrap();
 }
 
-fn termion_init(buf: &mut RawTerminal<Stdout>) {
-    write!(
+fn terminal_init(buf: &mut Stdout) {
+    execute!(
         buf,
-        "{}{}{}",
-        termion::clear::All,
-        termion::cursor::Goto(1, 1),
-        termion::cursor::Hide
+        terminal::Clear(terminal::ClearType::All),
+        cursor::MoveTo(0, 0),
+        cursor::Hide
     )
     .unwrap();
-    buf.flush().unwrap();
 }
 
 pub fn wait() {
     println!("点击任意键继续...");
-    let stdin = stdin();
-    let _ = stdin.keys().next();
+    let _ = read().unwrap();
 }
 
 #[cfg(test)]
