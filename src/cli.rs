@@ -30,7 +30,7 @@ pub struct Cli {
     #[arg(long, short)]
     pub cookies: Option<String>,
 
-    /// 下载目录，默认为用户下载目录
+    /// 下载目录，默认为当前目录
     #[arg(long, short, value_parser = set_dir, default_value = "")]
     pub dl_dir: PathBuf,
 }
