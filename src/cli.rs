@@ -2,7 +2,7 @@ use crate::http::download::Task;
 use clap::Parser;
 use crossterm::{
     cursor,
-    event::{read, Event, KeyCode},
+    event::{read, Event, KeyCode, KeyEventKind},
     execute,
     style::{Attribute, Color, SetAttribute, SetForegroundColor},
     terminal::{self, Clear, ClearType},
@@ -27,7 +27,7 @@ const UNSELECTED_COLOR: Color = Color::Rgb {
 
 #[derive(Parser, Debug)]
 #[command(name = "bili-dl")]
-#[command(version = "1.2")]
+#[command(version = "1.2.1")]
 pub struct Cli {
     /// 视频链接
     #[arg(value_parser = validate_url)]
@@ -78,6 +78,9 @@ pub fn select_download_video(video_list: Vec<Task>) -> Vec<Task> {
     loop {
         if let Event::Key(k) = read().expect("Failed to read input") {
             let key_code = k.code;
+            if k.kind != KeyEventKind::Press {
+                continue;
+            }
             match key_code {
                 KeyCode::Up => {
                     line = line.saturating_sub(1);
@@ -119,7 +122,13 @@ pub fn select_download_video(video_list: Vec<Task>) -> Vec<Task> {
 }
 
 fn print_video_list(buf: &mut Stdout, video_list: &[Task], is_selected: &[bool], line: usize) {
-    execute!(buf, Clear(ClearType::All), cursor::MoveTo(0, 0)).unwrap();
+    execute!(
+        buf,
+        Clear(ClearType::All),
+        Clear(ClearType::Purge),
+        cursor::MoveTo(0, 0)
+    )
+    .unwrap();
     for (i, (video, selected)) in video_list.iter().zip(is_selected.iter()).enumerate() {
         write!(buf, "{}", cursor::MoveTo(0, i as _)).unwrap();
         match (i == line, *selected) {
@@ -184,7 +193,13 @@ fn terminal_init(buf: &mut Stdout) {
 
 pub fn wait() {
     println!("点击任意键继续...");
-    let _ = read().unwrap();
+    loop {
+        if let Event::Key(k) = read().expect("Failed to read input") {
+            if k.kind == KeyEventKind::Press {
+                break;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
