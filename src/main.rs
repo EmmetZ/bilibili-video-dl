@@ -5,7 +5,7 @@ mod http;
 mod parser;
 
 use clap::Parser;
-use cli::Cli;
+use cli::{select_download_video, wait, Cli};
 use http::{
     client::Client,
     download::DownloadTask,
@@ -27,7 +27,7 @@ async fn main() {
     let _ = client.validate_login().await;
 
     let url = cli.url.as_str();
-    let media_list = match process_url(url) {
+    let video_list = match process_url(url) {
         VideoType::Bangumi => client
             .get_bangumi(url, &mut dir)
             .await
@@ -35,7 +35,14 @@ async fn main() {
         VideoType::Video => client.get_video(url).await.expect("获取视频失败"),
     };
 
-    let dl = Arc::new(DownloadTask::new(dir, client, media_list));
+    wait();
+    let selected_video_list = select_download_video(video_list);
+
+    if selected_video_list.is_empty() {
+        return;
+    }
+
+    let dl = Arc::new(DownloadTask::new(dir, client, selected_video_list));
     let listen_task = tokio::spawn(listen_for_interrupt());
 
     let clone_dl = Arc::clone(&dl);

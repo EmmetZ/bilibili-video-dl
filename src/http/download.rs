@@ -16,8 +16,8 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 #[derive(Debug)]
 pub struct InputPath {
-    pub v_path: PathBuf,
-    pub a_path: PathBuf,
+    pub v_path: Arc<PathBuf>,
+    pub a_path: Arc<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -50,10 +50,13 @@ impl Task {
 
     fn set_input_path(&self, v_path: PathBuf, a_path: PathBuf) {
         let mut input_path = self.input_path.lock().unwrap();
-        *input_path = Some(InputPath { v_path, a_path });
+        *input_path = Some(InputPath {
+            v_path: Arc::new(v_path),
+            a_path: Arc::new(a_path),
+        });
     }
 
-    fn get_media_path(&self, media: &str) -> PathBuf {
+    fn get_media_path(&self, media: &str) -> Arc<PathBuf> {
         let input_path = self.input_path.lock().unwrap();
         if media == "video" {
             input_path.as_ref().unwrap().v_path.clone()
@@ -64,15 +67,15 @@ impl Task {
 
     pub fn remove_media_file(&self) {
         let input_path = self.input_path.lock().unwrap();
-        let v_path = &input_path.as_ref().unwrap().v_path;
-        let a_path = &input_path.as_ref().unwrap().a_path;
+        let v_path = input_path.as_ref().unwrap().v_path.clone();
+        let a_path = input_path.as_ref().unwrap().a_path.clone();
         if v_path.exists() {
-            if let Err(e) = fs::remove_file(v_path) {
+            if let Err(e) = fs::remove_file(v_path.as_ref()) {
                 eprintln!("Failed to delete file: {}", e);
             }
         }
         if a_path.exists() {
-            if let Err(e) = fs::remove_file(a_path) {
+            if let Err(e) = fs::remove_file(a_path.as_ref()) {
                 eprintln!("Failed to delete file: {}", e);
             }
         }
@@ -90,7 +93,7 @@ impl Task {
             return Err(format!("download failed with status: {}", status).into());
         }
 
-        let mut file = File::create(self.get_media_path(media)).await?;
+        let mut file = File::create(self.get_media_path(media).as_ref()).await?;
 
         let total_size = resp
             .content_length()
@@ -144,13 +147,16 @@ impl DownloadTask {
                     let o_path = self.dir.join(&task.title).with_extension("mp4");
                     // merge audio and video
                     let merge_status = merge(
-                        task.get_media_path("audio"),
-                        task.get_media_path("video"),
+                        task.get_media_path("audio").as_path(),
+                        task.get_media_path("video").as_path(),
                         &o_path,
                     );
 
                     match merge_status {
-                        Ok(_) => println!("下载完成: {}\n", o_path.display()),
+                        Ok(_) => {
+                            println!("下载完成: {}\n", o_path.display());
+                            task.remove_media_file();
+                        }
                         Err(e) => {
                             panic!("Failed to merge video and audio: {}", e);
                         }

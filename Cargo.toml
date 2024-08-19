@@ -1,6 +1,6 @@
 [package]
 name = "bili-dl"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 
 [dependencies]
@@ -13,3 +13,4 @@ indicatif = "0.17"
 dirs = "5.0"
 ffmpeg-next = "7.0"
 regex = "1.10"
+termion = "4.0.2"
