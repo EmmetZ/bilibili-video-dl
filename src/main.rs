@@ -3,15 +3,17 @@ mod cli;
 mod ffmpeg;
 mod http;
 mod parser;
+mod tui;
 
 use clap::Parser;
-use cli::{select_download_video, wait, Cli};
+use cli::Cli;
 use http::{
     client::Client,
     download::DownloadTask,
     fetch::{process_url, VideoType},
 };
 use std::sync::Arc;
+use tui::{select_download_video, wait, SelectionUI};
 
 #[tokio::main]
 async fn main() {
@@ -36,7 +38,10 @@ async fn main() {
     };
 
     wait();
-    let selected_video_list = select_download_video(video_list);
+    let mut sui = SelectionUI::new(&video_list);
+    sui.run().expect("Failed to run tui");
+    let res = sui.get_selection();
+    let selected_video_list = select_download_video(video_list, res);
 
     if selected_video_list.is_empty() {
         return;
