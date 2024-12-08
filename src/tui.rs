@@ -21,6 +21,8 @@ use crate::http::download::Task;
 type Tui = Terminal<CrosstermBackend<Stdout>>;
 
 pub struct SelectionUI<'u> {
+    msg: &'u str,
+    username: &'u str,
     should_exit: bool,
     video_list: VideoList<'u>,
 }
@@ -33,7 +35,7 @@ struct VideoList<'l> {
 }
 
 impl<'u> SelectionUI<'u> {
-    pub fn new(video_list: &'u [Task]) -> Self {
+    pub fn new(msg: &'u str, uname: &'u str, video_list: &'u [Task]) -> Self {
         let vl = VideoList {
             videos: video_list,
             state: ListState::default(),
@@ -41,6 +43,8 @@ impl<'u> SelectionUI<'u> {
             select_all: true,
         };
         Self {
+            msg,
+            username: uname,
             should_exit: false,
             video_list: vl,
         }
@@ -71,10 +75,16 @@ impl SelectionUI<'_> {
             KeyCode::Down => {
                 self.select_next();
             }
-            KeyCode::Char('d') => {
+            KeyCode::Char('k') => {
+                self.select_prev();
+            }
+            KeyCode::Char('j') => {
+                self.select_next();
+            }
+            KeyCode::Enter => {
                 self.toggle_status();
             }
-            KeyCode::Enter => self.should_exit = true,
+            KeyCode::Char('d') => self.should_exit = true,
 
             KeyCode::Char('n') => {
                 println!("取消下载");
@@ -126,20 +136,44 @@ impl VideoList<'_> {
     }
 }
 
+// TODO: 显示用户登录信息
 impl Widget for &mut SelectionUI<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let [main_area, foot_area] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(2)]).areas(area);
+        let [top_bar, user, main_area, foot_area] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(2),
+        ])
+        .areas(area);
 
-        SelectionUI::render_footer(foot_area, buf);
+        self.render_title(top_bar, buf);
+        self.render_user_status(user, buf);
+        self.render_footer(foot_area, buf);
         self.render_list(main_area, buf);
     }
 }
 
 impl SelectionUI<'_> {
-    fn render_footer(area: Rect, buf: &mut Buffer) {
+    fn render_title(&self, area: Rect, buf: &mut Buffer) {
+        Paragraph::new(self.msg).left_aligned().render(area, buf);
+    }
+
+    fn render_user_status(&self, area: Rect, buf: &mut Buffer) {
+        let status;
+        if self.username.is_empty() {
+            status = "未登录"
+        } else {
+            status = self.username;
+        }
+        Paragraph::new(format!("用户: {}", status))
+            .left_aligned()
+            .render(area, buf);
+    }
+
+    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         Paragraph::new(
-            "<↑/↓>: 上下移动; <d>: 选择 / 取消选择; <a>: 全选 / 全不选; <Enter>: 确认; <n>: 取消下载",
+            "<↑/↓>: 上下移动; <Enter>: 选择 / 取消选择; <a>: 全选 / 全不选; <d>: 确认; <n>: 取消下载",
         )
         .centered()
         .render(area, buf);
@@ -188,17 +222,6 @@ fn restore() -> io::Result<()> {
     execute!(stdout(), LeaveAlternateScreen)?;
     disable_raw_mode()?;
     Ok(())
-}
-
-pub fn wait() {
-    println!("点击任意键继续...");
-    loop {
-        if let Event::Key(k) = event::read().expect("Failed to read input") {
-            if k.kind == KeyEventKind::Press {
-                break;
-            }
-        }
-    }
 }
 
 pub fn select_download_video(video_list: Vec<Task>, flag: Vec<bool>) -> Vec<Task> {

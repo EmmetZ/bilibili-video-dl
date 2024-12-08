@@ -1,22 +1,22 @@
 use clap::Parser;
 use reqwest::Url;
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(name = "bili-dl")]
-#[command(version = "1.3.0")]
+#[command(version = "1.4.0")]
 pub struct Cli {
-    /// 视频链接
-    #[arg(value_parser = validate_url)]
+    /// 视频/番剧链接
+    #[arg(value_parser = validate_url, value_name = "url")]
     pub url: Url,
 
-    /// cookies.txt 的路径
-    #[arg(long, short)]
-    pub cookies: Option<String>,
-
-    /// 下载目录，默认为当前目录
-    #[arg(long, short, value_parser = set_dir, default_value = "")]
+    /// 下载目录路径
+    #[arg(value_parser = set_dir, default_value = "./", value_name = "path")]
     pub dl_dir: PathBuf,
+
+    /// cookies.txt 的路径
+    #[arg(long, short, value_name = "path")]
+    pub cookies: Option<String>,
 }
 
 fn validate_url(url: &str) -> Result<Url, String> {
@@ -25,18 +25,13 @@ fn validate_url(url: &str) -> Result<Url, String> {
 }
 
 fn set_dir(dir: &str) -> Result<PathBuf, String> {
-    if !dir.is_empty() {
-        let d = PathBuf::from(dir);
-        if !d.exists() || !d.is_dir() {
-            return Err("文件夹不存在".into());
-        }
-        Ok(PathBuf::from(dir))
-    } else {
-        match std::env::current_dir() {
-            Ok(d) => Ok(d),
-            Err(e) => Err(e.to_string()),
-        }
+    let d = path::absolute(dir).unwrap().canonicalize().unwrap();
+
+    if !d.exists() || !d.is_dir() {
+        return Err("文件夹不存在".into());
     }
+    // println!("{:?}", d);
+    Ok(d)
 }
 
 #[cfg(test)]
@@ -57,5 +52,29 @@ mod cli_test {
             "https://www.bilibili.com/bangumi/media/md21231728",
         ]);
         assert_eq!(cli.unwrap().dl_dir, dirs::download_dir().unwrap());
+    }
+
+    #[test]
+    fn cli_test3() {
+        let cli = Cli::try_parse_from([
+            "bili-dl",
+            "https://www.bilibili.com/bangumi/media/md21231728",
+        ]);
+        println!("{:?}", cli.as_ref().unwrap().dl_dir);
+        assert_eq!(cli.unwrap().dl_dir, std::env::current_dir().unwrap());
+    }
+
+    #[test]
+    fn cli_test4() {
+        let cli = Cli::try_parse_from([
+            "bili-dl",
+            "https://www.bilibili.com/bangumi/media/md21231728",
+            "../",
+        ]);
+        println!("{:?}", cli.as_ref().unwrap().dl_dir);
+        assert_eq!(
+            cli.unwrap().dl_dir,
+            std::env::current_dir().unwrap().parent().unwrap()
+        );
     }
 }

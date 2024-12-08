@@ -1,7 +1,6 @@
 use crate::ffmpeg::merge;
-use crate::parser::{
-    choose_audio_stream, choose_video_stream, extract_filename, extract_play_info, MediaInfo,
-};
+use crate::stream::{MediaType, Stream, VIDEO_QUALITY};
+use crate::video::extract_filename;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::header::REFERER;
 use std::path::Path;
@@ -13,6 +12,7 @@ use super::client::Client;
 // use super::Result;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
+pub type Params = Vec<(String, String)>;
 
 #[derive(Debug)]
 pub struct InputPath {
@@ -23,6 +23,7 @@ pub struct InputPath {
 #[derive(Debug)]
 pub struct Task {
     pub link: String,
+    pub params: Params,
     pub title: String,
     pub input_path: Mutex<Option<InputPath>>,
     pub id: usize,
@@ -38,9 +39,10 @@ pub struct DownloadTask {
 }
 
 impl Task {
-    pub fn new(link: String, title: String, id: usize) -> Self {
+    pub fn new(link: String, params: Params, title: String, id: usize) -> Self {
         Self {
             link,
+            params,
             title,
             input_path: Mutex::new(None),
             id,
@@ -48,6 +50,7 @@ impl Task {
         }
     }
 
+    /// 设置.m4s路径
     fn set_input_path(&self, v_path: PathBuf, a_path: PathBuf) {
         let mut input_path = self.input_path.lock().unwrap();
         *input_path = Some(InputPath {
@@ -124,14 +127,13 @@ impl DownloadTask {
         self.create_dir_all();
         for task in self.tasks.iter() {
             println!("[Download] 下载视频: {}", task.title);
-            let page_info = self
+            let streams = self
                 .client
-                .fetch_page_info(&task.link)
+                .fetch_dash(&task.link, &task.params)
                 .await
-                .unwrap_or_else(|_| panic!("获取视频: {} 页面信息失败", task.title));
-            let mut play_info = extract_play_info(page_info).expect("解析播放信息失败");
-            let audio_stream = choose_audio_stream(&mut play_info).unwrap();
-            let video_stream = choose_video_stream(&mut play_info.dash.video).unwrap();
+                .expect("解析播放信息失败");
+            let audio_stream = streams.best(MediaType::Audio).unwrap();
+            let video_stream = streams.best(MediaType::Video).unwrap();
 
             task.set_input_path(
                 get_file_path(&self.dir, &video_stream, &format!("video{:02}", task.id)),
@@ -144,7 +146,10 @@ impl DownloadTask {
             let res = tokio::try_join!(v_part, a_part);
             match res {
                 Ok((_, _)) => {
-                    let o_path = self.dir.join(&task.title).with_extension("mp4");
+                    let o_path = self
+                        .dir
+                        .join(&task.title.replace("/", "_"))
+                        .with_extension("mp4");
                     // merge audio and video
                     let merge_status = merge(
                         task.get_media_path("audio").as_path(),
@@ -154,7 +159,11 @@ impl DownloadTask {
 
                     match merge_status {
                         Ok(_) => {
-                            println!("下载完成: {}\n", o_path.display());
+                            let (_, q) = VIDEO_QUALITY
+                                .iter()
+                                .find(|&&(i, _)| i == video_stream.id)
+                                .expect("unknown video quality");
+                            println!("下载完成: ({}) {}\n", q, o_path.display());
                             task.remove_media_file();
                         }
                         Err(e) => {
@@ -181,8 +190,8 @@ impl DownloadTask {
     }
 }
 
-fn get_file_path(dir: &Path, media: &MediaInfo, default: &str) -> PathBuf {
-    let filename = extract_filename(&media.base_url, default);
+fn get_file_path(dir: &Path, stream: &Stream, default: &str) -> PathBuf {
+    let filename = extract_filename(&stream.base_url, default);
     dir.join(PathBuf::from(filename))
 }
 

@@ -62,7 +62,7 @@ impl Client {
         Ok(sid)
     }
 
-    pub async fn get_bangumi(&self, url: &str, dir: &mut PathBuf) -> Result<Vec<Task>> {
+    pub async fn get_bangumi(&self, url: &str, dir: &mut PathBuf) -> Result<(String, Vec<Task>)> {
         let info = match bangumi_url_parser(url) {
             Ok(SeasonID(id)) => self.fetch_bangumi_info("season_id", id).await?,
             Ok(MediaID(id)) => {
@@ -74,11 +74,18 @@ impl Client {
                 let ep_list = info.episodes;
                 let target = ep_list.into_iter().find(|ep| ep.ep_id == id);
                 if let Some(ep) = target {
-                    return Ok(vec![Task::new(
-                        ep.link,
-                        get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title),
-                        ep.ep_num.parse().unwrap(),
-                    )]);
+                    return Ok((
+                        format!(
+                            "番剧(单集): {}",
+                            get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title)
+                        ),
+                        vec![Task::new(
+                            "https://api.bilibili.com/pgc/player/web/playurl".into(),
+                            vec![("ep_id".into(), id.to_string())],
+                            get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title),
+                            ep.ep_num.parse().unwrap(),
+                        )],
+                    ));
                 }
                 return Err("未找到番剧".into());
             }
@@ -86,7 +93,7 @@ impl Client {
                 return Err(e);
             }
         };
-        println!("获取番剧列表成功\n《{}》, 共{}集", &info.title, info.total);
+        let msg = format!("番剧: [{}], 共{}集", &info.title, info.total);
         dir.push(&info.title);
         let mut video_list: Vec<Task> = Vec::new();
         let filtered_ep_list = info.episodes.into_iter().filter(|ep| ep.badge_type != 1);
@@ -94,12 +101,13 @@ impl Client {
         // println!("{:#?}", filtered_ep_list);
         filtered_ep_list.enumerate().for_each(|(i, ep)| {
             video_list.push(Task::new(
-                ep.link,
+                "https://api.bilibili.com/pgc/player/web/playurl".into(),
+                vec![("ep_id".into(), ep.ep_id.to_string())],
                 get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title),
                 i,
             ))
         });
-        Ok(video_list)
+        Ok((msg, video_list))
     }
 }
 

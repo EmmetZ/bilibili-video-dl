@@ -6,12 +6,15 @@ use reqwest::{
 
 use std::{fs, sync::Arc};
 
+use super::{auth::UserStatus, Result};
+
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0";
 
 #[derive(Debug)]
 pub struct Client {
     cli: reqwest::Client,
     cookies: Arc<Jar>,
+    pub user_status: UserStatus,
 }
 
 impl Client {
@@ -25,7 +28,11 @@ impl Client {
             .default_headers(header)
             .build()
             .unwrap();
-        Self { cli, cookies }
+        Self {
+            cli,
+            cookies,
+            user_status: UserStatus::default(),
+        }
     }
 
     pub fn add_cookies(&self, c_path: &str) {
@@ -44,6 +51,16 @@ impl Client {
 
     pub fn get(&self, url: &str) -> reqwest::RequestBuilder {
         self.cli.get(url)
+    }
+
+    pub async fn update_user_statue(&mut self) -> Result<String> {
+        let users = self.fetch_user_status().await?;
+        self.user_status = users;
+        Ok(self.user_status.uname.clone())
+    }
+
+    pub fn get_mixin_key(&self) -> Result<&str> {
+        self.user_status.wbi.get_mixin_key()
     }
 }
 
@@ -73,5 +90,13 @@ mod client {
         let client = Client::new();
         client.add_cookies("cookies.txt");
         println!("{:#?}", client.cookies);
+    }
+
+    #[tokio::test]
+    async fn add_user_status() -> Result<()> {
+        let mut client = Client::new();
+        client.update_user_statue().await?;
+        println!("{:#?}", client);
+        Ok(())
     }
 }
