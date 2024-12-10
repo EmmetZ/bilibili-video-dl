@@ -22,7 +22,7 @@ type Tui = Terminal<CrosstermBackend<Stdout>>;
 
 pub struct SelectionUI<'u> {
     msg: &'u str,
-    username: &'u str,
+    username: Option<&'u String>,
     should_exit: bool,
     video_list: VideoList<'u>,
 }
@@ -35,7 +35,7 @@ struct VideoList<'l> {
 }
 
 impl<'u> SelectionUI<'u> {
-    pub fn new(msg: &'u str, uname: &'u str, video_list: &'u [Task]) -> Self {
+    pub fn new(msg: &'u str, uname: Option<&'u String>, video_list: &'u [Task]) -> Self {
         let vl = VideoList {
             videos: video_list,
             state: ListState::default(),
@@ -136,7 +136,6 @@ impl VideoList<'_> {
     }
 }
 
-// TODO: 显示用户登录信息
 impl Widget for &mut SelectionUI<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [top_bar, user, main_area, foot_area] = Layout::vertical([
@@ -160,11 +159,11 @@ impl SelectionUI<'_> {
     }
 
     fn render_user_status(&self, area: Rect, buf: &mut Buffer) {
-        let status;
-        if self.username.is_empty() {
-            status = "未登录"
+        let status: &str;
+        if let Some(uname) = self.username {
+            status = uname;
         } else {
-            status = self.username;
+            status = "未登录"
         }
         Paragraph::new(format!("用户: {}", status))
             .left_aligned()

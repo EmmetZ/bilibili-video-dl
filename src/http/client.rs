@@ -53,10 +53,11 @@ impl Client {
         self.cli.get(url)
     }
 
-    pub async fn update_user_statue(&mut self) -> Result<String> {
-        let users = self.fetch_user_status().await?;
+    pub async fn update_user_statue(&mut self) -> Result<Option<String>> {
+        let mut users = self.fetch_user_status().await?;
+        let uname = users.uname.take();
         self.user_status = users;
-        Ok(self.user_status.uname.clone())
+        Ok(uname)
     }
 
     pub fn get_mixin_key(&self) -> Result<&str> {

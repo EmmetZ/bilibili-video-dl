@@ -1,4 +1,4 @@
-use crate::ffmpeg::merge;
+use crate::ffmpeg::mux;
 use crate::stream::{MediaType, Stream, VIDEO_QUALITY};
 use crate::video::extract_filename;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -9,7 +9,6 @@ use std::{error::Error, fs, path::PathBuf};
 use tokio::{self, fs::File, io::AsyncWriteExt};
 
 use super::client::Client;
-// use super::Result;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 pub type Params = Vec<(String, String)>;
@@ -113,7 +112,7 @@ impl Task {
             pb.inc(chunk.len().try_into().unwrap());
         }
 
-        pb.finish_with_message("✓");
+        pb.finish_with_message(format!("{media} ✓"));
         Ok(())
     }
 }
@@ -126,7 +125,6 @@ impl DownloadTask {
     pub async fn execute(self: Arc<Self>) {
         self.create_dir_all();
         for task in self.tasks.iter() {
-            println!("[Download] 下载视频: {}", task.title);
             let streams = self
                 .client
                 .fetch_dash(&task.link, &task.params)
@@ -134,6 +132,11 @@ impl DownloadTask {
                 .expect("解析播放信息失败");
             let audio_stream = streams.best(MediaType::Audio).unwrap();
             let video_stream = streams.best(MediaType::Video).unwrap();
+            let (_, q) = VIDEO_QUALITY
+                .iter()
+                .find(|&&(i, _)| i == video_stream.id)
+                .expect("unknown video quality");
+            println!("[Download] 下载视频: ({}) {}", q, task.title);
 
             task.set_input_path(
                 get_file_path(&self.dir, &video_stream, &format!("video{:02}", task.id)),
@@ -151,18 +154,14 @@ impl DownloadTask {
                         .join(&task.title.replace("/", "_"))
                         .with_extension("mp4");
                     // merge audio and video
-                    let merge_status = merge(
+                    let mux_result = mux(
                         task.get_media_path("audio").as_path(),
                         task.get_media_path("video").as_path(),
                         &o_path,
                     );
 
-                    match merge_status {
+                    match mux_result {
                         Ok(_) => {
-                            let (_, q) = VIDEO_QUALITY
-                                .iter()
-                                .find(|&&(i, _)| i == video_stream.id)
-                                .expect("unknown video quality");
                             println!("下载完成: ({}) {}\n", q, o_path.display());
                             task.remove_media_file();
                         }
@@ -205,7 +204,7 @@ mod dl_test {
     async fn dl() {
         let url = "https://www.bilibili.com/video/BV1ub421J7vH";
         let client = client::Client::new();
-        let v = client.get_video(url).await.unwrap();
+        let (_, v) = client.get_video(url).await.unwrap();
 
         let dl = Arc::new(DownloadTask::new(
             dirs::home_dir().unwrap().join("Downloads"),

@@ -12,17 +12,17 @@ use http::{client::Client, download::DownloadTask};
 use std::sync::Arc;
 use tui::{select_download_video, SelectionUI};
 
-use self::video::{process_url, VideoType};
+use crate::video::{process_url, VideoType};
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
+    println!("loading...");
     let mut dir = cli.dl_dir;
     let mut client = Client::new();
 
-    if let Some(c) = cli.cookies {
-        println!("添加 cookies");
-        client.add_cookies(&c);
+    if let Some(c) = &cli.cookies {
+        client.add_cookies(c);
     };
 
     let uname = client
@@ -39,7 +39,7 @@ async fn main() {
         VideoType::Video => client.get_video(url).await.expect("获取视频失败"),
     };
 
-    let mut sui = SelectionUI::new(&msg, &uname, &video_list);
+    let mut sui = SelectionUI::new(&msg, uname.as_ref(), &video_list);
     sui.run().expect("Failed to run tui");
     let res = sui.get_selection();
     let selected_video_list = select_download_video(video_list, res);
@@ -71,8 +71,6 @@ async fn main() {
            }
        }
     }
-
-    // remove tmp files
     dl.remove_tmp_file();
 }
 

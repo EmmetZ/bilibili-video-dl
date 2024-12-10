@@ -7,12 +7,12 @@ use ffmpeg_next::{codec, encoder, format, media};
 
 use crate::http::Result;
 
-/// merge audio and video
+/// mux audio and video
 /// ### Parameters
 /// - a_path: the path to audio
 /// - v_path: the path to video
 /// - o_path: the path to write output video
-pub fn merge(a_path: &Path, v_path: &Path, o_path: &PathBuf) -> Result<()> {
+pub fn mux(a_path: &Path, v_path: &Path, o_path: &PathBuf) -> Result<()> {
     if o_path.exists() {
         fs::remove_file(o_path)?;
     }

@@ -18,8 +18,7 @@ const MIXIN_KEY_ENC_TAB: [u8; 64] = [
 pub struct UserStatus {
     #[serde(rename = "isLogin")]
     pub is_login: bool,
-    #[serde(default)]
-    pub uname: String,
+    pub uname: Option<String>,
     #[serde(rename = "wbi_img")]
     pub wbi: Wbi,
 }
@@ -32,8 +31,6 @@ pub struct Wbi {
     sub_key: String,
     #[serde(default)]
     mixin_key: String,
-    // #[serde(default)]
-    // wts: String,
 }
 
 fn key_parser<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
