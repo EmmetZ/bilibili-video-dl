@@ -1,6 +1,6 @@
-use crate::http::download::Task;
-use crate::http::Result;
-use crate::http::{client::Client, url_regex};
+use crate::client::Client;
+use crate::download::Task;
+use crate::utils::{url_regex, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::path::PathBuf;
@@ -140,7 +140,7 @@ fn get_bangumi_file_name(b_title: &str, ep_num: &str, ep_title: &str) -> String 
 #[cfg(test)]
 mod bangumi {
 
-    use crate::http::client::Client;
+    use crate::client::Client;
 
     #[tokio::test]
     async fn test_bangumi_eps() {

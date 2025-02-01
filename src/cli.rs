@@ -14,8 +14,12 @@ pub struct Cli {
     pub dl_dir: PathBuf,
 
     /// cookies.txt 的路径
-    #[arg(long, short, value_name = "path")]
-    pub cookies: Option<String>,
+    #[arg(long = "cookie-txt", short = 'f', value_name = "path")]
+    pub cookie_file: Option<String>,
+
+    /// cookie[`SESSDATA`]的值
+    #[arg(long, short = 'c')]
+    pub cookie: Option<String>,
 }
 
 fn validate_url(url: &str) -> Result<Url, String> {

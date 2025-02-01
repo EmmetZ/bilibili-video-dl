@@ -3,13 +3,13 @@ use serde::{self, Deserialize, Serialize};
 use serde_json::Value;
 use std::path::Path;
 
-use crate::http::client::Client;
-use crate::http::Result;
+use crate::client::Client;
+use crate::utils::Result;
 use std::time::Duration;
 
-use crate::http::download::{Params, Task};
-use crate::http::url_regex;
+use crate::download::{Params, Task};
 use crate::stream::{Stream, Streams};
+use crate::utils::url_regex;
 
 fn i64_to_string<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
 where

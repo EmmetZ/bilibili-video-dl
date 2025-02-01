@@ -6,7 +6,8 @@ use reqwest::{
 
 use std::{fs, sync::Arc};
 
-use super::{auth::UserStatus, Result};
+use crate::auth::UserStatus;
+use crate::utils::Result;
 
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0";
 
@@ -35,7 +36,7 @@ impl Client {
         }
     }
 
-    pub fn add_cookies(&self, c_path: &str) {
+    pub fn add_cookie_by_txt(&self, c_path: &str) {
         let s = fs::read_to_string(c_path).expect("failed to read cookies file");
         let lines: Vec<&str> = s.lines().collect();
         for cookie in lines {
@@ -47,6 +48,13 @@ impl Client {
                 &Url::parse("https://www.bilibili.com").unwrap(),
             );
         }
+    }
+
+    pub fn add_cookie(&self, cookie: &str) {
+        self.cookies.add_cookie_str(
+            &format!("SESSDATA={}; Domain=.bilibili.com", cookie),
+            &Url::parse("https://www.bilibili.com").unwrap(),
+        );
     }
 
     pub fn get(&self, url: &str) -> reqwest::RequestBuilder {
@@ -89,7 +97,7 @@ mod client {
     #[test]
     fn test_encode_cookies() {
         let client = Client::new();
-        client.add_cookies("cookies.txt");
+        client.add_cookie_by_txt("cookies.txt");
         println!("{:#?}", client.cookies);
     }
 

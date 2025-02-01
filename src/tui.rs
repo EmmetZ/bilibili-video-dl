@@ -16,7 +16,7 @@ use ratatui::{
 };
 use std::io::{self, stdout, Stdout};
 
-use crate::http::download::Task;
+use crate::download::Task;
 
 type Tui = Terminal<CrosstermBackend<Stdout>>;
 
@@ -81,12 +81,12 @@ impl SelectionUI<'_> {
             KeyCode::Char('j') => {
                 self.select_next();
             }
-            KeyCode::Enter => {
+            KeyCode::Char(' ') => {
                 self.toggle_status();
             }
-            KeyCode::Char('d') => self.should_exit = true,
+            KeyCode::Enter => self.should_exit = true,
 
-            KeyCode::Char('n') => {
+            KeyCode::Char('q') => {
                 println!("取消下载");
                 self.toggle_all_status(Some(false));
                 self.should_exit = true;
@@ -172,7 +172,7 @@ impl SelectionUI<'_> {
 
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         Paragraph::new(
-            "<↑/↓>: 上下移动; <Enter>: 选择 / 取消选择; <a>: 全选 / 全不选; <d>: 确认; <n>: 取消下载",
+            "<↑/↓>: 上下移动; <Space>: 选择 / 取消选择; <a>: 全选 / 全不选; <Enter>: 确认; <q>: 退出",
         )
         .centered()
         .render(area, buf);

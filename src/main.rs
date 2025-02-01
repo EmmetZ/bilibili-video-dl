@@ -1,18 +1,21 @@
+mod auth;
 mod bangumi;
 mod cli;
+mod client;
+mod download;
 mod ffmpeg;
-mod http;
 mod stream;
 mod tui;
+mod utils;
 mod video;
 
-use clap::Parser;
-use cli::Cli;
-use http::{client::Client, download::DownloadTask};
-use std::sync::Arc;
-use tui::{select_download_video, SelectionUI};
-
+use crate::cli::Cli;
+use crate::client::Client;
+use crate::download::DownloadTask;
+use crate::tui::{select_download_video, SelectionUI};
 use crate::video::{process_url, VideoType};
+use clap::Parser;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -21,9 +24,15 @@ async fn main() {
     let mut dir = cli.dl_dir;
     let mut client = Client::new();
 
-    if let Some(c) = &cli.cookies {
-        client.add_cookies(c);
-    };
+    match (&cli.cookie_file, &cli.cookie) {
+        (Some(c), _) => {
+            client.add_cookie_by_txt(c);
+        }
+        (None, Some(c)) => {
+            client.add_cookie(c);
+        }
+        (None, None) => {}
+    }
 
     let uname = client
         .update_user_statue()

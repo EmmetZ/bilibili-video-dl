@@ -1,10 +1,6 @@
 use regex::Regex;
 use reqwest::Url;
 
-mod auth;
-pub mod client;
-pub mod download;
-
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn url_regex(re: &str, url: &str) -> Option<String> {

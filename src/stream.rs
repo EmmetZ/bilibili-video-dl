@@ -1,4 +1,4 @@
-use crate::http::Result;
+use crate::utils::Result;
 use serde::{self, Deserialize, Serialize};
 
 use crate::video::DashResult;

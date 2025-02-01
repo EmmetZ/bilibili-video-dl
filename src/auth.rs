@@ -1,12 +1,12 @@
-use crate::http::client::Client;
-use crate::http::Result;
+use crate::client::Client;
+use crate::utils::Result;
 use reqwest::Url;
 use serde::{self, Deserialize, Serialize};
 use serde_json::Value;
 use std::char;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::download::Params;
+use crate::download::Params;
 
 const MIXIN_KEY_ENC_TAB: [u8; 64] = [
     46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49, 33, 9, 42, 19, 29,
@@ -113,7 +113,7 @@ impl Wbi {
 
 #[cfg(test)]
 mod user_test {
-    use crate::http::client::Client;
+    use crate::client::Client;
 
     #[tokio::test]
     async fn get_status() {

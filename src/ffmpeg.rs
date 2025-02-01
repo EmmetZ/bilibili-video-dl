@@ -5,7 +5,7 @@ use std::{
 
 use ffmpeg_next::{codec, encoder, format, media};
 
-use crate::http::Result;
+use crate::utils::Result;
 
 /// mux audio and video
 /// ### Parameters
@@ -28,7 +28,7 @@ pub fn mux(a_path: &Path, v_path: &Path, o_path: &PathBuf) -> Result<()> {
     let stream_index = [iv_stream.index(), ia_stream.index()];
     let stream_time_base = [iv_stream.time_base(), ia_stream.time_base()];
 
-    for stream in [iv_stream, ia_stream].iter() {
+    for stream in [&iv_stream, &ia_stream].iter() {
         let mut o_stream = octx.add_stream(encoder::find(codec::Id::None)).unwrap();
         o_stream.set_parameters(stream.parameters());
         unsafe {

@@ -10,12 +10,13 @@ Arguments:
   [path]  下载目录路径 [default: ./]
 
 Options:
-  -c, --cookies <path>  cookies.txt 的路径
-  -h, --help            Print help
-  -V, --version         Print version
+  -f, --cookie-txt <path>  cookies.txt 的路径
+  -c, --cookie <COOKIE>    cookie[`SESSDATA`]的值
+  -h, --help               Print help
+  -V, --version            Print version
 ```
 
-支持下载普通视频、部分番剧。会员内容需要传入 Cookie
+支持下载普通视频、部分番剧。会员内容需要传入 Cookie (`SESSDATA`)
 
 `cookies.txt` 示例:
 ```txt

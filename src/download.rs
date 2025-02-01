@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::{error::Error, fs, path::PathBuf};
 use tokio::{self, fs::File, io::AsyncWriteExt};
 
-use super::client::Client;
+use crate::client::Client;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 pub type Params = Vec<(String, String)>;
@@ -197,13 +197,13 @@ fn get_file_path(dir: &Path, stream: &Stream, default: &str) -> PathBuf {
 #[cfg(test)]
 mod dl_test {
     use super::*;
-    use crate::http::client;
+    use crate::client::Client;
     use dirs;
 
     #[tokio::test]
     async fn dl() {
         let url = "https://www.bilibili.com/video/BV1ub421J7vH";
-        let client = client::Client::new();
+        let client = Client::new();
         let (_, v) = client.get_video(url).await.unwrap();
 
         let dl = Arc::new(DownloadTask::new(

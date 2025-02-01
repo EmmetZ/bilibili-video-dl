@@ -11,13 +11,16 @@ run:
     cargo run -- https://www.bilibili.com/video/BV1zhYJeFELy
 
 run-c:
-    cargo run -- https://www.bilibili.com/video/BV1zhYJeFELy -c ./cookie.txt
+    cargo run -- https://www.bilibili.com/video/BV1zhYJeFELy -f ./cookies.txt
 
 run-b:
-    cargo run -- https://www.bilibili.com/bangumi/media/md963 -c ./cookie.txt 
+    cargo run -- https://www.bilibili.com/bangumi/media/md963 -f ./cookies.txt 
 
 check:
-    cargo fmt && cargo check
+    cargo fmt -v && cargo check
 
 help:
     cargo run -- --help
+
+tt:
+    @time ./target/release/bili-dl -V
