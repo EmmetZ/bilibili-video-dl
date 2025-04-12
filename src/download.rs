@@ -38,7 +38,7 @@ pub struct DownloadTask {
 }
 
 impl Task {
-    pub fn new(link: String, params: Params, title: String, id: usize) -> Self {
+    pub fn new(id: usize, link: String, params: Params, title: String) -> Self {
         Self {
             link,
             params,

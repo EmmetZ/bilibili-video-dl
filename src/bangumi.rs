@@ -80,10 +80,10 @@ impl Client {
                             get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title)
                         ),
                         vec![Task::new(
+                            ep.ep_num.parse().unwrap(),
                             "https://api.bilibili.com/pgc/player/web/playurl".into(),
                             vec![("ep_id".into(), id.to_string())],
                             get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title),
-                            ep.ep_num.parse().unwrap(),
                         )],
                     ));
                 }
@@ -101,10 +101,10 @@ impl Client {
         // println!("{:#?}", filtered_ep_list);
         filtered_ep_list.enumerate().for_each(|(i, ep)| {
             video_list.push(Task::new(
+                i,
                 "https://api.bilibili.com/pgc/player/web/playurl".into(),
                 vec![("ep_id".into(), ep.ep_id.to_string())],
                 get_bangumi_file_name(&info.title, &ep.ep_num, &ep.long_title),
-                i,
             ))
         });
         Ok((msg, video_list))

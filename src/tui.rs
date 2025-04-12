@@ -81,6 +81,12 @@ impl SelectionUI<'_> {
             KeyCode::Char('j') => {
                 self.select_next();
             }
+            KeyCode::Char('g') => {
+                self.goto_top();
+            }
+            KeyCode::Char('G') => {
+                self.goto_bottom();
+            }
             KeyCode::Char(' ') => {
                 self.toggle_status();
             }
@@ -119,6 +125,16 @@ impl SelectionUI<'_> {
             self.video_list.select_all = !self.video_list.select_all;
             self.video_list.is_selected = vec![self.video_list.select_all; self.video_list.len()];
         }
+    }
+
+    fn goto_top(&mut self) {
+        self.video_list.state.select(Some(0));
+    }
+
+    fn goto_bottom(&mut self) {
+        self.video_list
+            .state
+            .select(Some(self.video_list.len() - 1));
     }
 
     pub fn get_selection(self) -> Vec<bool> {
@@ -171,11 +187,16 @@ impl SelectionUI<'_> {
     }
 
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new(
-            "<↑/↓>: 上下移动; <Space>: 选择 / 取消选择; <a>: 全选 / 全不选; <Enter>: 确认; <q>: 退出",
-        )
-        .centered()
-        .render(area, buf);
+        let layout: [Rect; 2] =
+            Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
+
+        Paragraph::new("<↑/↓/j/k>: 上下移动; <g>: 到顶部; <G>: 到底部")
+            .centered()
+            .render(layout[0], buf);
+
+        Paragraph::new("<Space>: 选择/取消选择; <a>: 全选/全不选; <Enter>: 确认; <q>: 退出")
+            .centered()
+            .render(layout[1], buf);
     }
 
     fn render_list(&mut self, area: Rect, buf: &mut Buffer) {

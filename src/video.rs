@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::client::Client;
+use crate::debug;
 use crate::utils::Result;
 use std::time::Duration;
 
@@ -28,6 +29,20 @@ pub struct VideoInfo {
     pub title: String,
     pub desc: String,
     pub duration: i32,
+    /// part number (default: 1)
+    pub videos: i32,
+    /// start from 1
+    pub pages: Vec<Page>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Page {
+    #[serde(deserialize_with = "i64_to_string")]
+    pub cid: String,
+    /// start from 1
+    pub page: i32,
+    #[serde(rename = "part")]
+    pub page_title: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -85,6 +100,7 @@ impl Client {
                 .json()
                 .await?;
             let info: VideoInfo = serde_json::from_value(resp["data"].take())?;
+            debug!("video info: {info:#?}");
             Ok(info)
         } else {
             Err("无法从链接解析 BV 号".into())
@@ -93,17 +109,35 @@ impl Client {
 
     pub async fn get_video(&self, url: &str) -> Result<(String, Vec<Task>)> {
         let info = self.fetch_video_info(url).await?;
-        // println!("{info:#?}");
-        let params = vec![("bvid".into(), info.bvid), ("cid".into(), info.cid)];
-        Ok((
-            format!("视频: [{}]", info.title.clone()),
-            vec![Task::new(
-                "https://api.bilibili.com/x/player/wbi/playurl".into(),
-                params,
-                info.title,
-                1,
-            )],
-        ))
+        if info.videos == 1 {
+            let params = vec![("bvid".into(), info.bvid), ("cid".into(), info.cid)];
+            Ok((
+                format!("视频: [{}]", info.title),
+                vec![Task::new(
+                    1,
+                    "https://api.bilibili.com/x/player/wbi/playurl".into(),
+                    params,
+                    info.title,
+                )],
+            ))
+        } else {
+            let mut page_list = vec![];
+            for (i, page) in info.pages.into_iter().enumerate() {
+                let params = vec![("bvid".into(), info.bvid.clone()), ("cid".into(), page.cid)];
+                let title = format!("{}p: {}", i + 1, page.page_title);
+                let task = Task::new(
+                    i + 1,
+                    "https://api.bilibili.com/x/player/wbi/playurl".into(),
+                    params,
+                    title,
+                );
+                page_list.push(task);
+            }
+            Ok((
+                format!("分p视频: [{}] (共{}p)", info.title, info.videos),
+                page_list,
+            ))
+        }
     }
 
     /// 获取流

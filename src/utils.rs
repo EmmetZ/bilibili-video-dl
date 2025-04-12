@@ -10,6 +10,14 @@ pub fn url_regex(re: &str, url: &str) -> Option<String> {
         .map(|res| res.get(1).unwrap().as_str().to_owned())
 }
 
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        println!("[Debug] {}", format!($($arg)*));
+    }
+}
+
 #[cfg(test)]
 mod url_test {
     use reqwest::Url;
