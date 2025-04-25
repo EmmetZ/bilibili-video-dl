@@ -151,8 +151,7 @@ impl DownloadTask {
                 Ok((_, _)) => {
                     let o_path = self
                         .dir
-                        .join(&task.title.replace("/", "_"))
-                        .with_extension("mp4");
+                        .join(format!("{}.mp4", &task.title.replace("/", "_").trim()));
                     // merge audio and video
                     let mux_result = mux(
                         task.get_media_path("audio").as_path(),

@@ -1,6 +1,6 @@
 **简易的命令行 bilibili 视频下载工具**
 
-![example](./example/demo.gif)
+![example](./docs/demo.gif)
 
 ```sh
 Usage: bili-dl [OPTIONS] <url> [path]

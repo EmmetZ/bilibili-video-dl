@@ -1,7 +1,11 @@
 [package]
-name = "bili-dl"
-version = "1.5.0"
+name = "bilibili-video-dl"
+version = "1.5.1"
 edition = "2021"
+
+[[bin]]
+name = "bbdl"
+path = "src/main.rs"
 
 [dependencies]
 reqwest = { version = "0.12", features = ["cookies", "json"]}

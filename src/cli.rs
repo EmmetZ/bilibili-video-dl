@@ -3,7 +3,7 @@ use reqwest::Url;
 use std::path::{self, PathBuf};
 
 #[derive(Parser, Debug)]
-#[command(version, name = "bili-dl")]
+#[command(version, name = "bilibili-video-dl")]
 pub struct Cli {
     /// 视频/番剧链接
     #[arg(value_parser = validate_url, value_name = "url")]
